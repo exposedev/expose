@@ -2,8 +2,15 @@
 
 namespace App\Commands;
 
+use App\Commands\Concerns\SharesViteServer;
+use React\ChildProcess\Process;
+use React\EventLoop\LoopInterface;
+use Symfony\Component\Process\PhpExecutableFinder;
+
 class ShareCurrentWorkingDirectoryCommand extends ShareCommand
 {
+    use SharesViteServer;
+
     protected $signature = 'share-cwd {host?} {--subdomain=} {--auth=} {--basicAuth=} {--dns=} {--domain=}';
 
     public function handle()
@@ -16,6 +23,8 @@ class ShareCurrentWorkingDirectoryCommand extends ShareCommand
         if (! $this->option('subdomain')) {
             $this->input->setOption('subdomain', str_replace('.', '-', $folderName));
         }
+
+        $this->checkForVite();
 
         parent::handle();
     }
