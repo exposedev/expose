@@ -6,6 +6,8 @@ use App\Client\Configuration;
 use App\Client\Http\Modifiers\CheckBasicAuthentication;
 use App\Logger\RequestLogger;
 use GuzzleHttp\Psr7\Message;
+use Illuminate\Support\Facades\Log;
+use Laminas\Http\Header\Exception\RuntimeException;
 use Laminas\Http\Request;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -50,7 +52,11 @@ class HttpClient
 
         $this->request = $this->parseRequest($requestData);
 
-        $this->logger->logRequest($requestData, $this->request);
+        try {
+            $this->logger->logRequest($requestData, $this->request);
+        } catch (RuntimeException $exception) {
+            Log::error($exception->getMessage());
+        }
 
         $request = $this->passRequestThroughModifiers(parse_request($requestData), $proxyConnection);
 
