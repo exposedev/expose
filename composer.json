@@ -21,7 +21,7 @@
         "laravel-zero/phar-updater": "^1.2"
     },
     "require-dev": {
-        "cboden/ratchet": "dev-master",
+        "cboden/ratchet": "^0.4.4",
         "clue/block-react": "^1.4",
         "clue/reactphp-sqlite": "dev-modular-worker-for-phar-support",
         "guzzlehttp/guzzle": "^7.4",
@@ -69,10 +69,6 @@
         {
             "type": "git",
             "url": "https://github.com/seankndy/reactphp-sqlite"
-        },
-        {
-            "type": "git",
-            "url": "https://github.com/beyondcode/Ratchet"
         },
         {
             "type": "git",
