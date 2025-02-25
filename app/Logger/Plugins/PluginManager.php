@@ -12,6 +12,8 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\CloningVisitor;
 use PhpParser\Parser\Php7;
 use PhpParser\PrettyPrinter\Standard;
+use Symfony\Component\Finder\Finder;
+use Symfony\Component\Finder\SplFileInfo;
 
 class PluginManager
 {
@@ -90,16 +92,28 @@ class PluginManager
             return [];
         }
 
-        foreach (scandir($pluginDirectory) as $file) {
-            if (str($file)->startsWith('.')) {
-                continue;
-            }
+        $finder = (new Finder())
+            ->files()
+            ->in($pluginDirectory)
+            ->name('*.php')
+            ->contains('Expose\Client\Logger\Plugins\BasePlugin')
+            ->filter(function (SplFileInfo $file) {
+                require_once $file->getPathname();  // required because autoloader won't be able to find this file in the normal path based on the namespace
 
-            require_once $pluginDirectory . DIRECTORY_SEPARATOR . $file;
+                $pluginClass = 'Expose\Client\Logger\Plugins\\' . $file->getFilenameWithoutExtension();
 
-            $pluginClass = 'Expose\\Client\\Logger\\Plugins\\' . pathinfo($file, PATHINFO_FILENAME);
+                if (!class_exists($pluginClass) || !is_subclass_of($pluginClass, BasePlugin::class)) {
+                    print $file . "\n";
+                    return false;
+                }
 
-            $this->customPlugins[] = $pluginClass;
+                return true;
+            })
+            ->sortByName()
+        ;
+
+        foreach ($finder as $file) {
+            $this->customPlugins[] = 'Expose\Client\Logger\Plugins\\' . $file->getFilenameWithoutExtension();
         }
 
         return $this->customPlugins;
@@ -107,23 +121,26 @@ class PluginManager
 
     protected function loadDefaultPlugins(): array
     {
-        $defaultPluginDirectory = scandir($this->getDefaultPluginDirectory());
         $this->defaultPlugins = [];
 
-        foreach ($defaultPluginDirectory as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
+        $finder = (new Finder())
+            ->files()
+            ->in($this->getDefaultPluginDirectory())
+            ->name('*.php')
+            ->filter(function (SplFileInfo $file) {
+                $pluginClass = 'Expose\Client\Logger\Plugins\\' . $file->getFilenameWithoutExtension();
 
-            require_once $this->getDefaultPluginDirectory() . DIRECTORY_SEPARATOR . $file;
+                if (!class_exists($pluginClass) || !is_subclass_of($pluginClass, BasePlugin::class)) {
+                    return false;
+                }
 
-            $pluginClass = 'Expose\\Client\\Logger\\Plugins\\' . pathinfo($file, PATHINFO_FILENAME);
+                return true;
+            })
+            ->sortByName()
+        ;
 
-            if (!class_exists($pluginClass) || !is_subclass_of($pluginClass, BasePlugin::class)) {
-                continue;
-            }
-
-            $this->defaultPlugins[] = $pluginClass;
+        foreach ($finder as $file) {
+            $this->defaultPlugins[] = 'Expose\Client\Logger\Plugins\\' . $file->getFilenameWithoutExtension();
         }
 
         return $this->defaultPlugins;
