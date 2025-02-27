@@ -103,7 +103,6 @@ class PluginManager
                 $pluginClass = 'Expose\Client\Logger\Plugins\\' . $file->getFilenameWithoutExtension();
 
                 if (!class_exists($pluginClass) || !is_subclass_of($pluginClass, BasePlugin::class)) {
-                    print $file . "\n";
                     return false;
                 }
 
