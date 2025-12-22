@@ -88,6 +88,9 @@ class HttpClient
 
     protected function sendRequestToApplication(RequestInterface $request, $proxyConnection = null)
     {
+        // Remove Expect header to prevent 100-continue responses from interfering with the proxy
+        $request = $request->withoutHeader('Expect');
+
         $uri = $request->getUri();
 
         if ($this->configuration->isSecureSharedUrl()) {
