@@ -49,6 +49,19 @@ declare interface RequestData {
     user: ExposeUser;
     max_logs: number;
     local_url: string;
+    auth_token?: string;
+    platform_url?: string;
+  }
+
+  interface BannerData {
+    message: string;
+    cta_text: string;
+    cta_url: string;
+    cta_suffix: string;
+    background_color: string;
+    text_color: string;
+    background_style?: string;
+    text_style?: string;
   }
 
   interface ExposeUser {
