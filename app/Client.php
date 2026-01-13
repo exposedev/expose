@@ -39,6 +39,8 @@ class Client
     public static $subdomains = [];
     public static $localUrl = '';
 
+    protected ?string $closingMessage = null;
+
     public function __construct(LoopInterface $loop, Configuration $configuration, CliLogger $logger)
     {
         $this->loop = $loop;
@@ -113,6 +115,10 @@ class Client
                 $connection->authenticate($sharedUrl, $subdomain, $serverHost);
 
                 $clientConnection->on('close', function () use ($sharedUrl, $subdomain, $serverHost, $authToken) {
+                    if ($this->closingMessage) {
+                        $this->logger->renderMessage($this->closingMessage);
+                    }
+
                     $this->logger->error('Connection to server closed.');
 
                     $this->retryConnectionOrExit(function () use ($sharedUrl, $subdomain, $serverHost, $authToken) {
@@ -138,6 +144,8 @@ class Client
                     if($data->message) {
                         $this->logger->renderMessage($data->message);
                     }
+
+                    $this->closingMessage = $data->closing_message ?? null;
 
                     $this->logger->renderConnectionTable([
                         "Shared site" => $sharedUrl,
@@ -189,6 +197,10 @@ class Client
                 $this->attachCommonConnectionListeners($connection, $deferred);
 
                 $clientConnection->on('close', function () use ($port, $authToken) {
+                    if ($this->closingMessage) {
+                        $this->logger->renderMessage($this->closingMessage);
+                    }
+
                     $this->logger->error('Connection to server closed.');
 
                     $this->retryConnectionOrExit(function () use ($port, $authToken) {
@@ -204,6 +216,8 @@ class Client
                     $this->logger->info("Shared-Port:\t\t<options=bold>{$data->shared_port}</>");
                     $this->logger->info("Expose-URL:\t\t<options=bold>tcp://{$host}:{$data->shared_port}</>");
                     $this->logger->line('');
+
+                    $this->closingMessage = $data->closing_message ?? null;
 
                     $deferred->resolve($data);
                 });
