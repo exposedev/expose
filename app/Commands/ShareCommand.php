@@ -5,6 +5,7 @@ namespace Expose\Client\Commands;
 
 use Expose\Client\Commands\Concerns\DetectsLocalDevelopmentSites;
 use Expose\Client\Commands\Concerns\SharesViteServer;
+use Expose\Client\Commands\Concerns\TriggersLogin;
 use Expose\Client\Factory;
 use chillerlan\QRCode\Common\Version;
 use chillerlan\QRCode\Data\QRMatrix;
@@ -25,6 +26,7 @@ class ShareCommand extends ServerAwareCommand
 {
     use DetectsLocalDevelopmentSites;
     use SharesViteServer;
+    use TriggersLogin;
 
     protected $signature = 'share {host} {--subdomain=} {--auth=} {--basicAuth=} {--dns=} {--domain=} {--prevent-cors} {--no-vite-detection} {--qr} {--qr-code}';
 
@@ -172,12 +174,9 @@ class ShareCommand extends ServerAwareCommand
     protected function ensureExposeSetup(): void
     {
         if (empty(config('expose.auth_token'))) {
-            info();
-            error('No authentication token set.');
-            info();
-
-            info("If you don't have an Expose account yet, you can start for free at <a href='https://expose.dev'>expose.dev</a>.");
-            exit;
+            if (! $this->triggerLogin()) {
+                exit(1);
+            }
         }
     }
 
