@@ -14,6 +14,7 @@ use PhpParser\PrettyPrinter\Standard;
 use function Expose\Common\error;
 use function Expose\Common\info;
 use function Expose\Common\success;
+use function Laravel\Prompts\select;
 use function Laravel\Prompts\spin;
 
 trait TriggersLogin
@@ -60,10 +61,17 @@ trait TriggersLogin
         info();
 
         // Poll for completion
-        $token = $this->pollForAuthentication($apiEndpoint, $deviceCode);
+        $authentication = $this->pollForAuthentication($apiEndpoint, $deviceCode);
+
+        if (! $authentication) {
+            error('Authentication timed out or was cancelled. Please try again.');
+            return false;
+        }
+
+        $token = $this->resolveTokenFromLoginResponse($authentication);
 
         if (! $token) {
-            error('Authentication timed out or was cancelled. Please try again.');
+            error('Failed to determine which token to use. Please try again.');
             return false;
         }
 
@@ -80,7 +88,7 @@ trait TriggersLogin
         return true;
     }
 
-    protected function pollForAuthentication(string $apiEndpoint, string $deviceCode): ?string
+    protected function pollForAuthentication(string $apiEndpoint, string $deviceCode): ?array
     {
         $maxAttempts = 150; // 5 minutes at 2 second intervals
         $attempt = 0;
@@ -102,7 +110,7 @@ trait TriggersLogin
                             $status = $data['status'] ?? 'pending';
 
                             if ($status === 'completed') {
-                                return $data['token'] ?? null;
+                                return $data;
                             }
 
                             if ($status === 'expired') {
@@ -120,6 +128,43 @@ trait TriggersLogin
             },
             message: 'Waiting for authentication...'
         );
+    }
+
+    protected function resolveTokenFromLoginResponse(array $authentication): ?string
+    {
+        $teams = $authentication['teams'] ?? [];
+
+        if (! is_array($teams)) {
+            $teams = [];
+        }
+
+        if (count($teams) > 1) {
+            $options = collect($teams)->mapWithKeys(function (array $team) {
+                $label = $team['name'] ?? 'Unknown Team';
+                $label .= ($team['is_pro'] ?? false) ? ' [Pro]' : ' [Free]';
+
+                return [
+                    $team['token'] ?? '' => $label,
+                ];
+            })->filter(function (string $label, string $token) {
+                return $token !== '';
+            })->all();
+
+            if (empty($options)) {
+                return $authentication['token'] ?? null;
+            }
+
+            return select(
+                label: 'Select the team token you want to use',
+                options: $options,
+            );
+        }
+
+        if (count($teams) === 1 && isset($teams[0]['token'])) {
+            return $teams[0]['token'];
+        }
+
+        return $authentication['token'] ?? null;
     }
 
     protected function openBrowser(string $url): void

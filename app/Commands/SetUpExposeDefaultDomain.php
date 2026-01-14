@@ -34,17 +34,22 @@ class SetUpExposeDefaultDomain implements FetchesPlatformDataContract
 
             if ($domains->isNotEmpty()) {
                 info();
+
+                $options = $domains->mapWithKeys(function ($domain) {
+                    return [
+                        $domain['name'] =>  $domain['name'] . ' [' . $domain['server'] . ']'
+                    ];
+                })->prepend('None (can be changed later)', '__none__');
+
                 $domain = select(
                     label: 'What default domain would you like to use?',
-                    options: $domains->mapWithKeys(function ($domain) {
-                        return [
-                            $domain['name'] =>  $domain['name'] . ' [' . $domain['server'] . ']'
-                        ];
-                    }),
+                    options: $options,
                     hint: "You can use `expose default-domain` to change this setting."
                 );
 
-                if ($domain) {
+                if ($domain === '__none__') {
+                    Artisan::call("default-domain:clear");
+                } elseif ($domain) {
                     $server = $domains->firstWhere('name', $domain)['server'];
                     Artisan::call("default-domain $domain --server=$server");
                 }
