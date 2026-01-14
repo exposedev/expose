@@ -2,7 +2,6 @@
 
 namespace Expose\Client\Commands;
 
-
 use Expose\Client\Commands\Concerns\DetectsLocalDevelopmentSites;
 use Expose\Client\Commands\Concerns\SharesViteServer;
 use Expose\Client\Commands\Concerns\TriggersLogin;
@@ -168,15 +167,6 @@ class ShareCommand extends ServerAwareCommand
                 'Please refer to the documentation for more information: https://expose.dev/docs/troubleshooting',
                 abort: true
             );
-        }
-    }
-
-    protected function ensureExposeSetup(): void
-    {
-        if (empty(config('expose.auth_token'))) {
-            if (! $this->triggerLogin()) {
-                exit(1);
-            }
         }
     }
 

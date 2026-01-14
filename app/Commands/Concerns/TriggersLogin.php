@@ -5,7 +5,6 @@ namespace Expose\Client\Commands\Concerns;
 use Expose\Client\Commands\SetupExposeProToken;
 use Expose\Client\Support\TokenNodeVisitor;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 use PhpParser\Lexer\Emulative;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\CloningVisitor;
@@ -183,5 +182,14 @@ trait TriggersLogin
         $prettyPrinter = new Standard();
 
         return $prettyPrinter->printFormatPreserving($newStmts, $oldStmts, $oldTokens);
+    }
+
+    protected function ensureExposeSetup(): void
+    {
+        if (empty(config('expose.auth_token'))) {
+            if (! $this->triggerLogin()) {
+                exit(1);
+            }
+        }
     }
 }
