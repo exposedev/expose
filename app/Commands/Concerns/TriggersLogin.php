@@ -3,6 +3,7 @@
 namespace Expose\Client\Commands\Concerns;
 
 use Expose\Client\Commands\SetupExposeProToken;
+use Expose\Client\Support\ExposeConfig;
 use Expose\Client\Support\TokenNodeVisitor;
 use Illuminate\Support\Facades\Http;
 use PhpParser\Lexer\Emulative;
@@ -84,6 +85,7 @@ trait TriggersLogin
 
         // Run pro setup if applicable
         (new SetupExposeProToken)($token);
+        ExposeConfig::load();
 
         return true;
     }
