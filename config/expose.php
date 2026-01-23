@@ -187,7 +187,8 @@ return [
     */
     'request_plugins' => [
         \Expose\Client\Logger\Plugins\PaddleBillingPlugin::class,
-        \Expose\Client\Logger\Plugins\GitHubPlugin::class
+        \Expose\Client\Logger\Plugins\GitHubPlugin::class,
+        \Expose\Client\Logger\Plugins\MagicLoginPlugin::class,
     ]
 
 

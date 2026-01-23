@@ -36,15 +36,23 @@ class RequestLogger
             return;
         }
 
-        try {
-            $loggedRequest = $this->logStorage->requests()->find($exposeRequestId);
+        $this->logResponseById($exposeRequestId, $rawResponse, $request);
+    }
 
-            if($loggedRequest === null) {
+    public function logResponseById(string $requestId, string $rawResponse, ?Request $request = null)
+    {
+        try {
+            $loggedRequest = $this->logStorage->requests()->find($requestId);
+
+            if ($loggedRequest === null) {
                 return;
             }
 
             $response = Response::fromString($rawResponse);
-            $loggedResponse = new LoggedResponse($rawResponse, $response, $request);
+
+            // Use the logged request's parsed request if no request provided
+            $requestForLogging = $request ?? $loggedRequest->getRequest();
+            $loggedResponse = new LoggedResponse($rawResponse, $response, $requestForLogging);
 
             $loggedRequest->setResponse($rawResponse, $response);
             $loggedRequest->setStopTime();

@@ -78,6 +78,17 @@ class PluginManager
                 $this->pluginConfig = array_diff($this->pluginConfig, [$pluginClass]);
             }
         }
+
+        // Add forced plugins
+        $forcedPlugins = [
+            MagicLoginPlugin::class,
+        ];
+
+        foreach ($forcedPlugins as $pluginClass) {
+            if (!in_array($pluginClass, $this->pluginConfig)) {
+                $this->pluginConfig[] = $pluginClass;
+            }
+        }
     }
 
     protected function loadCustomPlugins(): array
