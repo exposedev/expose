@@ -15,7 +15,7 @@ class ShareCurrentWorkingDirectoryCommand extends ShareCommand
     use SharesViteServer;
     use DetectsLocalDevelopmentSites;
 
-    protected $signature = 'share-cwd {host?} {--subdomain=} {--auth=} {--basicAuth=} {--dns=} {--domain=} {--prevent-cors} {--no-vite-detection} {--qr} {--qr-code}';
+    protected $signature = 'share-cwd {host?} {--subdomain=} {--auth=} {--basicAuth=} {--magic-auth=} {--dns=} {--domain=} {--prevent-cors} {--no-vite-detection} {--qr} {--qr-code}';
 
     public function handle()
     {
