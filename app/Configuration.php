@@ -2,6 +2,8 @@
 
 namespace Expose\Client;
 
+use Illuminate\Support\Str;
+
 class Configuration
 {
     /** @var string */
@@ -19,13 +21,16 @@ class Configuration
     /** @var string|null */
     protected $basicAuth;
 
+    /** @var string|null */
+    protected $magicAuth;
+
     /** @var bool */
     protected $isSecureSharedUrl = false;
 
     /** @var bool */
     protected $preventCORS = false;
 
-    public function __construct(string $host, int $port, ?string $auth = null, ?string $basicAuth = null, bool $preventCORS = false)
+    public function __construct(string $host, int $port, ?string $auth = null, ?string $basicAuth = null, bool $preventCORS = false, ?string $magicAuth = null)
     {
         $this->serverHost = $this->host = $host;
 
@@ -35,7 +40,13 @@ class Configuration
 
         $this->basicAuth = $basicAuth;
 
+        $this->magicAuth = $magicAuth;
+
         $this->preventCORS = $preventCORS;
+
+        if ($this->magicAuth !== null) {
+            config(['expose.magic-auth-secret-key' => Str::random(32)]);
+        }
     }
 
     public function host(): string
@@ -61,6 +72,20 @@ class Configuration
     public function basicAuth(): ?string
     {
         return $this->basicAuth;
+    }
+
+    public function magicAuth(): ?string
+    {
+        return $this->magicAuth;
+    }
+
+    public function getAllowedMagicAuthPatterns(): array
+    {
+        if (is_null($this->magicAuth) || $this->magicAuth === '') {
+            return [];
+        }
+
+        return array_filter(array_map('trim', explode(',', $this->magicAuth)));
     }
 
     public function preventCORS(): bool

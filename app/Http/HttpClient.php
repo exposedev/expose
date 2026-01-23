@@ -4,6 +4,7 @@ namespace Expose\Client\Http;
 
 use Expose\Client\Configuration;
 use Expose\Client\Http\Modifiers\CheckBasicAuthentication;
+use Expose\Client\Http\Modifiers\CheckMagicAuthentication;
 use Expose\Client\Logger\RequestLogger;
 use GuzzleHttp\Psr7\Message;
 use Laminas\Http\Request;
@@ -32,7 +33,9 @@ class HttpClient
     /** @var array */
     protected $modifiers = [
         CheckBasicAuthentication::class,
+        CheckMagicAuthentication::class,
     ];
+
     /** @var Configuration */
     protected $configuration;
 

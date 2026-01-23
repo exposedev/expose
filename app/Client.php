@@ -147,11 +147,18 @@ class Client
 
                     $this->closingMessage = $data->closing_message ?? null;
 
-                    $this->logger->renderConnectionTable([
+                    $connectionInfo = [
                         "Shared site" => $sharedUrl,
                         "Dashboard" => "http://127.0.0.1:".config()->get('expose.dashboard_port'),
                         "Public URL" => "https://{$data->subdomain}.{$host}",
-                    ]);
+                    ];
+
+                    if ($this->configuration->magicAuth() !== null) {
+                        $patterns = $this->configuration->getAllowedMagicAuthPatterns();
+                        $connectionInfo["Magic Auth"] = empty($patterns) ? "Enabled (any email)" : "Enabled (" . implode(', ', $patterns) . ")";
+                    }
+
+                    $this->logger->renderConnectionTable($connectionInfo);
                     $this->logger->line('');
 
                     static::$subdomains[] = "{$httpProtocol}://{$data->subdomain}.{$host}";

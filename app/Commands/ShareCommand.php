@@ -27,7 +27,7 @@ class ShareCommand extends ServerAwareCommand
     use SharesViteServer;
     use TriggersLogin;
 
-    protected $signature = 'share {host} {--subdomain=} {--auth=} {--basicAuth=} {--dns=} {--domain=} {--prevent-cors} {--no-vite-detection} {--qr} {--qr-code}';
+    protected $signature = 'share {host} {--subdomain=} {--auth=} {--basicAuth=} {--magic-auth=} {--dns=} {--domain=} {--prevent-cors} {--no-vite-detection} {--qr} {--qr-code}';
 
     protected $description = 'Share a local url with a remote expose server';
 
@@ -49,6 +49,11 @@ class ShareCommand extends ServerAwareCommand
         info("Using auth token: $auth", options: OutputInterface::VERBOSITY_VERBOSE);
 
         info("Using basic auth: ". $this->option('basicAuth'), options: OutputInterface::VERBOSITY_VERBOSE);
+
+        if ($this->getMagicAuthValue() !== null) {
+            $magicAuthPatterns = $this->getMagicAuthValue() ?: 'any email';
+            info("Using magic auth: ". $magicAuthPatterns, options: OutputInterface::VERBOSITY_VERBOSE);
+        }
 
         if (strstr($this->argument('host'), 'host.docker.internal')) {
             config(['expose.dns' => true]);
@@ -108,6 +113,7 @@ class ShareCommand extends ServerAwareCommand
             ->setPort($this->getServerPort())
             ->setAuth($auth)
             ->setBasicAuth($this->option('basicAuth'))
+            ->setMagicAuth($this->getMagicAuthValue())
             ->setPreventCORS($this->option('prevent-cors'))
             ->createClient()
             ->share(
@@ -187,5 +193,14 @@ class ShareCommand extends ServerAwareCommand
         }
 
         return $this->isWindows;
+    }
+
+    protected function getMagicAuthValue(): ?string
+    {
+        if (!$this->input->hasParameterOption('--magic-auth')) {
+            return null;
+        }
+
+        return $this->option('magic-auth') ?? '';
     }
 }
