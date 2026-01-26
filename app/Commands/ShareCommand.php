@@ -40,7 +40,6 @@ class ShareCommand extends ServerAwareCommand
         terminal()->clear();
 
         banner();
-        $this->ensureEnvironmentSetup();
         $this->ensureExposeSetup();
 
         info("Expose version v" . config('app.version'), options: OutputInterface::VERBOSITY_VERBOSE);
@@ -160,30 +159,6 @@ class ShareCommand extends ServerAwareCommand
     protected function detectOperatingSystem(): void
     {
         $this->isWindows = strpos(php_uname('s'), 'Windows') !== false;
-    }
-
-    protected function ensureEnvironmentSetup(): void
-    {
-        if (!$this->isWindows()) {
-            return;
-        }
-        if (!$this->isWmicAvailable()) {
-            error('The "wmic" command is not available on this Windows machine.');
-            error(
-                'Please refer to the documentation for more information: https://expose.dev/docs/troubleshooting',
-                abort: true
-            );
-        }
-    }
-
-    protected function isWmicAvailable(): bool
-    {
-        $output = [];
-        $exitCode = 0;
-
-        exec('wmic /?', $output, $exitCode);
-
-        return $exitCode === 0;
     }
 
     protected function isWindows(): bool
