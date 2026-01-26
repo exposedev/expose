@@ -183,7 +183,7 @@ class Factory
 
     protected function detectNextAvailablePort($startPort = 4040): int
     {
-        while (is_resource(@fsockopen('127.0.0.1', $startPort))) {
+        while (is_resource(@fsockopen('127.0.0.1', $startPort,  timeout: 1))) {
             $startPort++;
         }
 
