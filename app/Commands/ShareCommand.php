@@ -178,6 +178,7 @@ class ShareCommand extends ServerAwareCommand
 
     protected function isWmicAvailable(): bool
     {
+        return true;
         $output = [];
         $exitCode = 0;
 
