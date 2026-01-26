@@ -54,7 +54,7 @@
         "octoper/cuzzle": "dev-master",
         "phpunit/phpunit": "^10.5.1",
         "react/async": "^4.3",
-        "react/dns": "dev-mechelon/dns-228-caa-records as 1.13.0"
+        "react/dns": "3.x-dev as 1.13.0"
     },
     "config": {
         "optimize-autoloader": true,
