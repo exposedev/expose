@@ -23,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
     {
         UriFactory::registerScheme('capacitor', Uri::class);
         UriFactory::registerScheme('chrome-extension', Uri::class);
+        UriFactory::registerScheme('moz-extension', Uri::class);
     }
 
     public function register()
