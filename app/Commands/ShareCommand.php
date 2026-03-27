@@ -40,11 +40,12 @@ class ShareCommand extends ServerAwareCommand
         terminal()->clear();
 
         banner();
-        $this->ensureExposeSetup();
-
-        info("Expose version v" . config('app.version'), options: OutputInterface::VERBOSITY_VERBOSE);
 
         $auth = $this->option('auth') ?? config('expose.auth_token', '');
+
+        $this->ensureExposeSetup($auth);
+
+        info("Expose version v" . config('app.version'), options: OutputInterface::VERBOSITY_VERBOSE);
         info("Using auth token: $auth", options: OutputInterface::VERBOSITY_VERBOSE);
 
         info("Using basic auth: ". $this->option('basicAuth'), options: OutputInterface::VERBOSITY_VERBOSE);

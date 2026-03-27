@@ -231,9 +231,9 @@ trait TriggersLogin
         return $prettyPrinter->printFormatPreserving($newStmts, $oldStmts, $oldTokens);
     }
 
-    protected function ensureExposeSetup(): void
+    protected function ensureExposeSetup(string $auth = ''): void
     {
-        if (empty(config('expose.auth_token'))) {
+        if (empty($auth) && empty(config('expose.auth_token'))) {
             if (! $this->triggerLogin()) {
                 exit(1);
             }
