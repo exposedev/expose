@@ -7,6 +7,7 @@ use Expose\Client\Http\Modifiers\CheckBasicAuthentication;
 use Expose\Client\Http\Modifiers\CheckMagicAuthentication;
 use Expose\Client\Logger\RequestLogger;
 use GuzzleHttp\Psr7\Message;
+use Illuminate\Support\Str;
 use Laminas\Http\Request;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -120,6 +121,8 @@ class HttpClient
                 }
 
                 $responseBuffer = Message::toString($response);
+                $shouldBufferResponseBody = $this->shouldBufferResponseBodyForLogging($response, $this->request);
+                $maximumLoggedResponseSize = $this->getConfigSize(config()->get('expose.skip_body_log.size', '1MB'));
 
                 $this->sendChunkToServer($responseBuffer, $proxyConnection);
 
@@ -129,8 +132,16 @@ class HttpClient
                 $this->logResponse(Message::toString($response));
 
                 if (! $body->isWritable()) {
-                    $body->on('data', function ($chunk) use ($proxyConnection, &$responseBuffer) {
-                        $responseBuffer .= $chunk;
+                    $body->on('data', function ($chunk) use ($proxyConnection, &$responseBuffer, &$shouldBufferResponseBody, $maximumLoggedResponseSize) {
+                        if ($shouldBufferResponseBody) {
+                            if (strlen($responseBuffer) + strlen($chunk) <= $maximumLoggedResponseSize) {
+                                $responseBuffer .= $chunk;
+                            } else {
+                                $shouldBufferResponseBody = false;
+                                $responseHeaders = strstr($responseBuffer, "\r\n\r\n", true);
+                                $responseBuffer = ($responseHeaders === false ? $responseBuffer : $responseHeaders)."\r\n\r\n";
+                            }
+                        }
 
                         $this->sendChunkToServer($chunk, $proxyConnection);
                     });
@@ -155,6 +166,54 @@ class HttpClient
             $binaryMsg = new Frame($chunk, true, Frame::OP_BINARY);
             $proxyConnection->send($binaryMsg);
         });
+    }
+
+    protected function shouldBufferResponseBodyForLogging(ResponseInterface $response, Request $request): bool
+    {
+        if (! empty(config()->get('expose.skip_body_log.status')) && Str::is(config()->get('expose.skip_body_log.status'), $response->getStatusCode())) {
+            return false;
+        }
+
+        $contentType = $response->getHeaderLine('Content-Type');
+
+        if (str_contains($contentType, ';')) {
+            $contentType = explode(';', $contentType, 2)[0];
+        }
+
+        if (! empty(config()->get('expose.skip_body_log.content_type')) && Str::is(config()->get('expose.skip_body_log.content_type'), $contentType)) {
+            return false;
+        }
+
+        if (! empty(config()->get('expose.skip_body_log.extension')) && Str::is(config()->get('expose.skip_body_log.extension'), $request->getUri()->getPath())) {
+            return false;
+        }
+
+        $contentLength = $response->getHeaderLine('Content-Length');
+
+        if ($contentLength !== '' && (int) $contentLength > $this->getConfigSize(config()->get('expose.skip_body_log.size', '1MB'))) {
+            return false;
+        }
+
+        return Str::is([
+            'application/json',
+            'text/*',
+            '*javascript*',
+        ], $contentType);
+    }
+
+    protected function getConfigSize(string $size): int
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $number = substr($size, 0, -2);
+        $suffix = strtoupper(substr($size, -2));
+
+        if (is_numeric(substr($suffix, 0, 1))) {
+            return (int) preg_replace('/[^\d]/', '', $size);
+        }
+
+        $exponent = array_flip($units)[$suffix] ?? 5;
+
+        return $number * (1024 ** $exponent);
     }
 
     protected function logResponse(string $rawResponse)

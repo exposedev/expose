@@ -12,7 +12,7 @@ class Socket implements MessageComponentInterface
 
     public function onOpen(ConnectionInterface $connection)
     {
-        self::$connections[] = $connection;
+        self::$connections[spl_object_id($connection)] = $connection;
     }
 
     public function onMessage(ConnectionInterface $from, MessageInterface $msg)
@@ -21,9 +21,11 @@ class Socket implements MessageComponentInterface
 
     public function onClose(ConnectionInterface $connection)
     {
+        unset(self::$connections[spl_object_id($connection)]);
     }
 
     public function onError(ConnectionInterface $connection, \Exception $e)
     {
+        $this->onClose($connection);
     }
 }
