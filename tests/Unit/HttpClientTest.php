@@ -42,6 +42,22 @@ class HttpClientTest extends TestCase
         ])));
     }
 
+    /** @test */
+    public function it_keeps_reusable_proxy_connections_open()
+    {
+        $this->assertFalse($this->shouldCloseProxyConnection((object) [
+            'reusable' => true,
+        ]));
+    }
+
+    /** @test */
+    public function it_closes_non_reusable_proxy_connections()
+    {
+        $this->assertTrue($this->shouldCloseProxyConnection((object) [
+            'reusable' => false,
+        ]));
+    }
+
     protected function shouldBufferResponseBodyForLogging(Response $response): bool
     {
         $httpClient = new HttpClient(
@@ -54,5 +70,23 @@ class HttpClientTest extends TestCase
         $method->setAccessible(true);
 
         return $method->invoke($httpClient, $response, Request::fromString("GET /big.jpg HTTP/1.1\r\nHost: example.com\r\n\r\n"));
+    }
+
+    protected function shouldCloseProxyConnection(object $connectionData): bool
+    {
+        $httpClient = new HttpClient(
+            Loop::get(),
+            m::mock(RequestLogger::class),
+            new Configuration('127.0.0.1', 8080)
+        );
+
+        $property = new \ReflectionProperty(HttpClient::class, 'connectionData');
+        $property->setAccessible(true);
+        $property->setValue($httpClient, $connectionData);
+
+        $method = new \ReflectionMethod(HttpClient::class, 'shouldCloseProxyConnection');
+        $method->setAccessible(true);
+
+        return $method->invoke($httpClient);
     }
 }

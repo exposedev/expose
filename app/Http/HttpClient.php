@@ -150,7 +150,9 @@ class HttpClient
                 $body->on('close', function () use ($proxyConnection, &$responseBuffer) {
                     $this->logResponse($responseBuffer);
 
-                    optional($proxyConnection)->close();
+                    if ($this->shouldCloseProxyConnection()) {
+                        optional($proxyConnection)->close();
+                    }
                 });
 
                 return $response;
@@ -219,6 +221,11 @@ class HttpClient
     protected function logResponse(string $rawResponse)
     {
         $this->logger->logResponse($this->request, $rawResponse);
+    }
+
+    protected function shouldCloseProxyConnection(): bool
+    {
+        return ! ($this->connectionData->reusable ?? false);
     }
 
     protected function parseRequest($data): Request

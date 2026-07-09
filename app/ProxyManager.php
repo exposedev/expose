@@ -27,21 +27,22 @@ class ProxyManager
     public function createProxy(string $clientId, $connectionData)
     {
         $protocol = $this->configuration->port() === 443 ? 'wss' : 'ws';
+        $reusable = (bool) ($connectionData->reusable ?? false);
 
         connect($protocol."://{$this->configuration->host()}:{$this->configuration->port()}/expose/control", [], [
             'X-Expose-Control' => 'enabled',
         ], $this->loop)
-            ->then(function (WebSocket $proxyConnection) use ($clientId, $connectionData) {
+            ->then(function (WebSocket $proxyConnection) use ($clientId, $connectionData, $reusable) {
                 $localRequestConnection = null;
 
-                $proxyConnection->on('message', function ($message) use (&$localRequestConnection, $proxyConnection, $connectionData) {
+                $proxyConnection->on('message', function ($message) use (&$localRequestConnection, $proxyConnection, $connectionData, $clientId, $reusable) {
                     if ($localRequestConnection) {
                         $localRequestConnection->write($message);
                         return;
                     }
 
                     $this->performRequest($proxyConnection, (string) $message, $connectionData)
-                        ->then(function ($response) use ($proxyConnection, &$localRequestConnection) {
+                        ->then(function ($response) use ($proxyConnection, &$localRequestConnection, $connectionData, $clientId, $reusable) {
                                 if (is_null($response)) {
                                     return;
                                 }
@@ -50,6 +51,19 @@ class ProxyManager
                                 $body = $response->getBody();
                                 if ($body) {
                                     $localRequestConnection = $body;
+                                    $body->on('close', function () use (&$localRequestConnection, $proxyConnection, $connectionData, $clientId, $reusable) {
+                                        $localRequestConnection = null;
+
+                                        if ($reusable) {
+                                            $proxyConnection->send(json_encode([
+                                                'event' => 'proxyComplete',
+                                                'data' => [
+                                                    'request_id' => $connectionData->request_id ?? null,
+                                                    'client_id' => $clientId,
+                                                ],
+                                            ]));
+                                        }
+                                    });
                                 }
 
                                 if ($body->isWritable()) {
@@ -66,6 +80,7 @@ class ProxyManager
                     'data' => [
                         'request_id' => $connectionData->request_id ?? null,
                         'client_id' => $clientId,
+                        'reusable' => $reusable,
                     ],
                 ]));
             });
