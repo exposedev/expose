@@ -48,7 +48,7 @@ class ViteDevServer
 
         $path = $request->getUri()->getPath();
 
-        if (preg_match('#^/(@vite/|@id/|@fs/|node_modules/|resources/)#', $path) || $path === '/@react-refresh') {
+        if (preg_match('#^/(@vite/|@id/|@fs/|node_modules/|resources/|__laravel_vite_plugin__/)#', $path) || $path === '/@react-refresh') {
             return true;
         }
 
@@ -59,9 +59,11 @@ class ViteDevServer
     {
         $server = $this->get();
 
+        // Connect to the discovered host, as Vite might only listen on a
+        // single address family (e.g. [::1], but not 127.0.0.1).
         $uri = $request->getUri()
             ->withScheme($server['scheme'])
-            ->withHost('127.0.0.1')
+            ->withHost($server['host'])
             ->withPort($server['port']);
 
         // Vite only accepts requests for hosts on its allowedHosts list.
@@ -71,17 +73,22 @@ class ViteDevServer
     /**
      * Rewrite absolute local URLs (e.g. http://127.0.0.1:5173) to the public share
      * origin. The first match that does not point at the shared app itself tells
-     * us where the Vite dev server runs.
+     * us where the Vite dev server runs, so that a dev server restarting on a
+     * different port is picked up without restarting the tunnel.
      */
-    public function rewriteUrls(string $content, string $localHost, ?int $localPort, string $shareOrigin): string
+    public function rewriteUrls(string $content, string $localHost, ?int $localPort, string $shareOrigin, bool $allowDiscovery = true): string
     {
         $pattern = '~(https?)://(127\.0\.0\.1|localhost|\[::1\]|'.preg_quote($localHost, '~').'):(\d+)~i';
 
-        return preg_replace_callback($pattern, function ($matches) use ($localPort, $shareOrigin) {
+        $discovered = false;
+
+        return preg_replace_callback($pattern, function ($matches) use ($localPort, $shareOrigin, $allowDiscovery, &$discovered) {
             $port = (int) $matches[3];
 
-            if (is_null($this->server) && $port !== $localPort) {
+            if ($allowDiscovery && ! $discovered && $port !== $localPort) {
                 $this->set(strtolower($matches[1]), strtolower($matches[2]), $port);
+
+                $discovered = true;
             }
 
             return $shareOrigin;

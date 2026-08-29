@@ -159,8 +159,12 @@ class HttpClient
 
                 return $response;
             })
-            ->catch(function ($e) {
-                // Ignore possible errors
+            ->catch(function ($e) use ($proxyConnection) {
+                // The local upstream is unreachable (e.g. a stopped Vite dev
+                // server) - answer with a 502 instead of a dangling request.
+                $this->sendChunkToServer("HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", $proxyConnection);
+
+                optional($proxyConnection)->close();
             });
     }
 
@@ -224,15 +228,19 @@ class HttpClient
             $body,
             $this->localHost(),
             $this->localPort(),
-            $this->shareOrigin()
+            $this->shareOrigin(),
+            // Only the application itself is authoritative about where Vite runs.
+            ! $isViteRequest
         );
 
         if ($isViteRequest) {
             // laravel-vite-plugin bakes the local hostname into /@vite/client as
-            // `hmr.host` when serving over TLS (Herd/Valet certificates).
+            // `hmr.host` when serving over TLS (Herd/Valet certificates). The
+            // Vite client appends the port from import.meta.url itself, so the
+            // replacement has to be the bare hostname.
             $body = str_replace(
                 '"'.$this->localHost().'"',
-                '"'.$this->configuration->getUrl($this->connectionData->subdomain).'"',
+                '"'.$this->connectionData->subdomain.'.'.$this->configuration->serverHost().'"',
                 $body
             );
         }
@@ -299,7 +307,8 @@ class HttpClient
                 $location,
                 $this->localHost(),
                 $this->localPort(),
-                $this->shareOrigin()
+                $this->shareOrigin(),
+                false
             );
         }
 

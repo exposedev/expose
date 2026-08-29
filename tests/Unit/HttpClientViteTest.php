@@ -82,6 +82,26 @@ class HttpClientViteTest extends TestCase
     }
 
     /** @test */
+    public function the_hmr_hostname_rewrite_never_contains_a_port()
+    {
+        $httpClient = new TestHttpClient(
+            app(LoopInterface::class),
+            app(RequestLogger::class),
+            new Configuration('localhost', 8080)
+        );
+
+        $httpClient->setConnectionData((object) [
+            'host' => 'myhost.test',
+            'subdomain' => 'mysite',
+        ]);
+
+        $this->assertSame(
+            'const hmrHostname = "mysite.localhost";',
+            $httpClient->callRewriteResponseBody('const hmrHostname = "myhost.test";', true)
+        );
+    }
+
+    /** @test */
     public function it_only_rewrites_rewritable_content_types()
     {
         $rewritable = [

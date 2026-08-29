@@ -63,6 +63,37 @@ class ViteDevServerTest extends TestCase
     }
 
     /** @test */
+    public function it_updates_the_dev_server_when_it_restarts_on_a_different_port()
+    {
+        $this->viteDevServer->set('http', '127.0.0.1', 5173);
+
+        $this->viteDevServer->rewriteUrls(
+            '<script src="http://127.0.0.1:5175/@vite/client"></script>',
+            'myhost.test',
+            80,
+            'https://mysite.sharedwith.dev'
+        );
+
+        $this->assertSame(5175, $this->viteDevServer->get()['port']);
+    }
+
+    /** @test */
+    public function it_does_not_discover_the_dev_server_from_dev_server_responses()
+    {
+        $this->viteDevServer->set('http', '[::1]', 5175);
+
+        $this->viteDevServer->rewriteUrls(
+            'const api = "http://localhost:3000/api";',
+            'myhost.test',
+            80,
+            'https://mysite.sharedwith.dev',
+            false
+        );
+
+        $this->assertSame(5175, $this->viteDevServer->get()['port']);
+    }
+
+    /** @test */
     public function it_leaves_urls_without_an_explicit_port_untouched()
     {
         $html = '<a href="http://myhost.test/login">Login</a>';
@@ -121,6 +152,7 @@ class ViteDevServerTest extends TestCase
             '/node_modules/.vite/deps/vue.js',
             '/resources/js/app.js',
             '/resources/css/app.css?direct',
+            '/__laravel_vite_plugin__/fonts/2d9e91e07fbb2d42.woff2',
         ];
 
         foreach ($vitePaths as $path) {
@@ -181,7 +213,20 @@ class ViteDevServerTest extends TestCase
 
         $rewritten = $this->viteDevServer->rewriteRequest($request);
 
-        $this->assertSame('https://127.0.0.1:5173/@vite/client?foo=bar', (string) $rewritten->getUri());
+        $this->assertSame('https://myhost.test:5173/@vite/client?foo=bar', (string) $rewritten->getUri());
+        $this->assertSame('localhost', $rewritten->getHeaderLine('Host'));
+    }
+
+    /** @test */
+    public function it_rewrites_vite_requests_to_an_ipv6_dev_server()
+    {
+        $this->viteDevServer->set('http', '[::1]', 5175);
+
+        $request = new Request('GET', 'http://myhost.test/@vite/client');
+
+        $rewritten = $this->viteDevServer->rewriteRequest($request);
+
+        $this->assertSame('http://[::1]:5175/@vite/client', (string) $rewritten->getUri());
         $this->assertSame('localhost', $rewritten->getHeaderLine('Host'));
     }
 }
