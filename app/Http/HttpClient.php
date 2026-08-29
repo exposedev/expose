@@ -91,32 +91,14 @@ class HttpClient
 
     protected function sendRequestToApplication(RequestInterface $request, $proxyConnection = null)
     {
-        // Remove Expect header to prevent 100-continue responses from interfering with the proxy
-        $request = $request->withoutHeader('Expect');
-
-        // Request plaintext bodies so that local dev server URLs can be rewritten
-        $request = $request->withHeader('Accept-Encoding', 'identity');
-
-        $isViteRequest = $this->viteDevServer()->isViteRequest($request);
-
-        if ($isViteRequest) {
-            $request = $this->viteDevServer()->rewriteRequest($request);
-
-            $uri = $request->getUri();
-        } else {
-            $uri = $request->getUri();
-
-            if ($this->configuration->isSecureSharedUrl()) {
-                $uri = $uri->withScheme('https');
-            }
-        }
+        [$request, $isViteRequest] = $this->prepareUpstreamRequest($request);
 
         return (new Browser($this->loop, $this->createConnector()))
             ->withFollowRedirects(false)
             ->withRejectErrorResponse(false)
             ->requestStreaming(
                 $request->getMethod(),
-                $uri,
+                $request->getUri(),
                 $request->getHeaders(),
                 $request->getBody()
             )
@@ -166,6 +148,53 @@ class HttpClient
 
                 optional($proxyConnection)->close();
             });
+    }
+
+    /**
+     * Demux the request onto one of the local upstreams (application, Vite dev
+     * server, Herd Studio API) and normalize it for proxying.
+     *
+     * @return array{0: RequestInterface, 1: bool} the prepared request and
+     *                                             whether it targets the Vite dev server
+     */
+    protected function prepareUpstreamRequest(RequestInterface $request): array
+    {
+        // Remove Expect header to prevent 100-continue responses from interfering with the proxy
+        $request = $request->withoutHeader('Expect');
+
+        // Request plaintext bodies so that local dev server URLs can be rewritten
+        $request = $request->withHeader('Accept-Encoding', 'identity');
+
+        foreach ($this->localUpstreams() as $upstream) {
+            if ($upstream->shouldHandle($request)) {
+                return [$upstream->rewriteRequest($request), $upstream instanceof ViteDevServer];
+            }
+        }
+
+        $uri = $request->getUri();
+
+        if ($this->configuration->isSecureSharedUrl()) {
+            $uri = $uri->withScheme('https');
+        }
+
+        // The Host header may carry an explicit default port (e.g. myapp.test:443
+        // for https shares). Browsers omit default ports, so strip them to keep
+        // HTTP_HOST identical to what the application sees during local browsing.
+        $request = $this->normalizeHostHeader($request->withUri($uri, true), $uri->getScheme());
+
+        return [$request, false];
+    }
+
+    protected function normalizeHostHeader(RequestInterface $request, string $scheme): RequestInterface
+    {
+        $host = $request->getHeaderLine('Host');
+        $defaultPort = $scheme === 'https' ? ':443' : ':80';
+
+        if (str_ends_with($host, $defaultPort)) {
+            $request = $request->withHeader('Host', substr($host, 0, -strlen($defaultPort)));
+        }
+
+        return $request;
     }
 
     protected function bufferAndRewriteResponse(ResponseInterface $response, $proxyConnection, bool $isViteRequest)
@@ -248,6 +277,12 @@ class HttpClient
         return $body;
     }
 
+    /** @return \Expose\Client\Contracts\LocalUpstreamContract[] */
+    protected function localUpstreams(): array
+    {
+        return app('expose.local-upstreams');
+    }
+
     protected function viteDevServer(): ViteDevServer
     {
         return app(ViteDevServer::class);
@@ -316,6 +351,15 @@ class HttpClient
             $location = str_replace(
                 $this->connectionData->host,
                 $this->configuration->getUrl($this->connectionData->subdomain),
+                $location
+            );
+        } elseif (isset($this->connectionData->subdomain) && strstr($location, '://'.$this->localHost())) {
+            // The registered host may carry an explicit default port
+            // (myapp.test:443) while the application redirects to the bare
+            // hostname - match that too.
+            $location = str_replace(
+                '://'.$this->localHost(),
+                '://'.$this->configuration->getUrl($this->connectionData->subdomain),
                 $location
             );
         }

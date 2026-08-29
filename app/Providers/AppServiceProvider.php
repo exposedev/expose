@@ -8,6 +8,7 @@ use Expose\Client\Logger\DatabaseLogger;
 use Expose\Client\Logger\FrontendLogger;
 use Expose\Client\Logger\Plugins\PluginManager;
 use Expose\Client\Logger\RequestLogger;
+use Expose\Client\Http\HerdStudio;
 use Expose\Client\Http\ViteDevServer;
 use Expose\Client\Support\ExposeConfig;
 use Illuminate\Support\Facades\File;
@@ -52,8 +53,30 @@ class AppServiceProvider extends ServiceProvider
             return new RequestLogger($app->make(CliLogger::class), $app->make(FrontendLogger::class), $app->make(LogStorageContract::class));
         });
 
-        $this->app->singleton(ViteDevServer::class, function () {
-            return new ViteDevServer();
+        $this->app->singleton(HerdStudio::class, function () {
+            return new HerdStudio();
+        });
+
+        $this->app->singleton(ViteDevServer::class, function ($app) {
+            $viteDevServer = new ViteDevServer();
+
+            // Never mistake the Herd Studio widget dev server for the shared
+            // site's own Vite dev server.
+            if ($widgetPort = $app->make(HerdStudio::class)->widgetDevServerPort()) {
+                $viteDevServer->ignorePort($widgetPort);
+            }
+
+            return $viteDevServer;
+        });
+
+        // Local upstreams other than the shared application, in match order.
+        // The HttpClient routes each tunneled request to the first upstream
+        // whose shouldHandle() accepts it.
+        $this->app->singleton('expose.local-upstreams', function ($app) {
+            return [
+                $app->make(ViteDevServer::class),
+                $app->make(HerdStudio::class),
+            ];
         });
     }
 

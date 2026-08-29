@@ -2,9 +2,10 @@
 
 namespace Expose\Client\Http;
 
+use Expose\Client\Contracts\LocalUpstreamContract;
 use Psr\Http\Message\RequestInterface;
 
-class ViteDevServer
+class ViteDevServer implements LocalUpstreamContract
 {
     /** @var array|null ['scheme' => 'http'|'https', 'host' => string, 'port' => int] */
     protected $server = null;
@@ -14,6 +15,19 @@ class ViteDevServer
 
     /** @var bool */
     protected $hotFileChecked = false;
+
+    /** @var int[] */
+    protected $ignoredPorts = [];
+
+    /**
+     * Ports that never belong to the shared site's dev server (e.g. the Herd
+     * Studio widget dev server). URLs on these ports are neither rewritten
+     * nor used for discovery.
+     */
+    public function ignorePort(int $port): void
+    {
+        $this->ignoredPorts[] = $port;
+    }
 
     public function setHotFilePath(string $path): void
     {
@@ -40,7 +54,7 @@ class ViteDevServer
         ];
     }
 
-    public function isViteRequest(RequestInterface $request): bool
+    public function shouldHandle(RequestInterface $request): bool
     {
         if (is_null($this->get())) {
             return false;
@@ -84,6 +98,10 @@ class ViteDevServer
 
         return preg_replace_callback($pattern, function ($matches) use ($localPort, $shareOrigin, $allowDiscovery, &$discovered) {
             $port = (int) $matches[3];
+
+            if (in_array($port, $this->ignoredPorts, true)) {
+                return $matches[0];
+            }
 
             if ($allowDiscovery && ! $discovered && $port !== $localPort) {
                 $this->set(strtolower($matches[1]), strtolower($matches[2]), $port);

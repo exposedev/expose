@@ -192,6 +192,11 @@ class TestHttpClient extends HttpClient
         return $this->rewriteResponseHeaders($response);
     }
 
+    public function callPrepareUpstreamRequest($request): array
+    {
+        return $this->prepareUpstreamRequest($request);
+    }
+
     protected function sendChunkToServer(string $chunk, ?WebSocket $proxyConnection = null)
     {
         $this->chunks[] = $chunk;

@@ -94,6 +94,25 @@ class ViteDevServerTest extends TestCase
     }
 
     /** @test */
+    public function it_never_rewrites_or_discovers_ignored_ports()
+    {
+        $this->viteDevServer->ignorePort(5273);
+
+        $html = '<script src="http://127.0.0.1:5273/src/main.ts"></script>'
+            .'<script src="http://127.0.0.1:5173/@vite/client"></script>';
+
+        $rewritten = $this->viteDevServer->rewriteUrls($html, 'myhost.test', 80, 'https://mysite.sharedwith.dev');
+
+        $this->assertSame(
+            '<script src="http://127.0.0.1:5273/src/main.ts"></script>'
+            .'<script src="https://mysite.sharedwith.dev/@vite/client"></script>',
+            $rewritten
+        );
+
+        $this->assertSame(5173, $this->viteDevServer->get()['port']);
+    }
+
+    /** @test */
     public function it_leaves_urls_without_an_explicit_port_untouched()
     {
         $html = '<a href="http://myhost.test/login">Login</a>';
@@ -157,7 +176,7 @@ class ViteDevServerTest extends TestCase
 
         foreach ($vitePaths as $path) {
             $this->assertTrue(
-                $this->viteDevServer->isViteRequest(new Request('GET', "http://myhost.test{$path}")),
+                $this->viteDevServer->shouldHandle(new Request('GET', "http://myhost.test{$path}")),
                 "Expected {$path} to be detected as a Vite request."
             );
         }
@@ -173,7 +192,7 @@ class ViteDevServerTest extends TestCase
 
         foreach ($appPaths as $path) {
             $this->assertFalse(
-                $this->viteDevServer->isViteRequest(new Request('GET', "http://myhost.test{$path}")),
+                $this->viteDevServer->shouldHandle(new Request('GET', "http://myhost.test{$path}")),
                 "Expected {$path} to be routed to the application."
             );
         }
@@ -189,19 +208,19 @@ class ViteDevServerTest extends TestCase
             'Sec-WebSocket-Protocol' => 'vite-hmr',
         ]);
 
-        $this->assertTrue($this->viteDevServer->isViteRequest($request));
+        $this->assertTrue($this->viteDevServer->shouldHandle($request));
 
         $otherSocket = new Request('GET', 'http://myhost.test/', [
             'Upgrade' => 'websocket',
         ]);
 
-        $this->assertFalse($this->viteDevServer->isViteRequest($otherSocket));
+        $this->assertFalse($this->viteDevServer->shouldHandle($otherSocket));
     }
 
     /** @test */
     public function it_does_not_detect_vite_requests_without_a_discovered_dev_server()
     {
-        $this->assertFalse($this->viteDevServer->isViteRequest(new Request('GET', 'http://myhost.test/@vite/client')));
+        $this->assertFalse($this->viteDevServer->shouldHandle(new Request('GET', 'http://myhost.test/@vite/client')));
     }
 
     /** @test */
