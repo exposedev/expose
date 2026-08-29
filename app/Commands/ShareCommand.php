@@ -3,9 +3,9 @@
 namespace Expose\Client\Commands;
 
 use Expose\Client\Commands\Concerns\DetectsLocalDevelopmentSites;
-use Expose\Client\Commands\Concerns\SharesViteServer;
 use Expose\Client\Commands\Concerns\TriggersLogin;
 use Expose\Client\Factory;
+use Expose\Client\Http\ViteDevServer;
 use chillerlan\QRCode\Common\Version;
 use chillerlan\QRCode\Data\QRMatrix;
 use chillerlan\QRCode\Output\QROutputInterface;
@@ -24,10 +24,9 @@ use function Termwind\terminal;
 class ShareCommand extends ServerAwareCommand
 {
     use DetectsLocalDevelopmentSites;
-    use SharesViteServer;
     use TriggersLogin;
 
-    protected $signature = 'share {host} {--subdomain=} {--auth=} {--basicAuth=} {--magic-auth=} {--dns=} {--domain=} {--prevent-cors} {--no-vite-detection} {--qr} {--qr-code}';
+    protected $signature = 'share {host} {--subdomain=} {--auth=} {--basicAuth=} {--magic-auth=} {--dns=} {--domain=} {--prevent-cors} {--qr} {--qr-code}';
 
     protected $description = 'Share a local url with a remote expose server';
 
@@ -100,11 +99,10 @@ class ShareCommand extends ServerAwareCommand
         }
 
 
-        if (!$this->option('no-vite-detection')) {
-            $localSitePath = $this->detectSharedSitePathFromHostname($this->argument('host'));
-            if (!is_null($localSitePath)) {
-                $this->checkForVite($localSitePath);
-            }
+        $localSitePath = $this->detectSharedSitePathFromHostname($this->argument('host'));
+        if (!is_null($localSitePath)) {
+            // Used as a read-only fallback to detect a running Vite dev server.
+            app(ViteDevServer::class)->setHotFilePath($localSitePath . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'hot');
         }
 
         (new Factory())

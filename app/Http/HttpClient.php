@@ -94,10 +94,21 @@ class HttpClient
         // Remove Expect header to prevent 100-continue responses from interfering with the proxy
         $request = $request->withoutHeader('Expect');
 
-        $uri = $request->getUri();
+        // Request plaintext bodies so that local dev server URLs can be rewritten
+        $request = $request->withHeader('Accept-Encoding', 'identity');
 
-        if ($this->configuration->isSecureSharedUrl()) {
-            $uri = $uri->withScheme('https');
+        $isViteRequest = $this->viteDevServer()->isViteRequest($request);
+
+        if ($isViteRequest) {
+            $request = $this->viteDevServer()->rewriteRequest($request);
+
+            $uri = $request->getUri();
+        } else {
+            $uri = $request->getUri();
+
+            if ($this->configuration->isSecureSharedUrl()) {
+                $uri = $uri->withScheme('https');
+            }
         }
 
         return (new Browser($this->loop, $this->createConnector()))
@@ -109,7 +120,7 @@ class HttpClient
                 $request->getHeaders(),
                 $request->getBody()
             )
-            ->then(function (ResponseInterface $response) use ($proxyConnection) {
+            ->then(function (ResponseInterface $response) use ($proxyConnection, $isViteRequest) {
                 $response = $this->rewriteResponseHeaders($response);
 
                 $response = $response->withoutHeader('Transfer-Encoding');
@@ -119,12 +130,16 @@ class HttpClient
                     $response = $response->withAddedHeader('Access-Control-Allow-Origin', '*');
                 }
 
+                /* @var $body \React\Stream\DuplexStreamInterface */
+                $body = $response->getBody();
+
+                if (! $body->isWritable() && $this->shouldRewriteResponseBody($response)) {
+                    return $this->bufferAndRewriteResponse($response, $proxyConnection, $isViteRequest);
+                }
+
                 $responseBuffer = Message::toString($response);
 
                 $this->sendChunkToServer($responseBuffer, $proxyConnection);
-
-                /* @var $body \React\Stream\DuplexStreamInterface */
-                $body = $response->getBody();
 
                 $this->logResponse(Message::toString($response));
 
@@ -147,6 +162,106 @@ class HttpClient
             ->catch(function ($e) {
                 // Ignore possible errors
             });
+    }
+
+    protected function bufferAndRewriteResponse(ResponseInterface $response, $proxyConnection, bool $isViteRequest)
+    {
+        /* @var $body \React\Stream\ReadableStreamInterface */
+        $body = $response->getBody();
+
+        $bodyBuffer = '';
+
+        $body->on('data', function ($chunk) use (&$bodyBuffer) {
+            $bodyBuffer .= $chunk;
+        });
+
+        $body->on('close', function () use (&$bodyBuffer, $response, $proxyConnection, $isViteRequest) {
+            $bodyBuffer = $this->rewriteResponseBody($bodyBuffer, $isViteRequest);
+
+            $response = $response->withHeader('Content-Length', (string) strlen($bodyBuffer));
+
+            $rawResponse = Message::toString($response).$bodyBuffer;
+
+            $this->sendChunkToServer($rawResponse, $proxyConnection);
+
+            $this->logResponse($rawResponse);
+
+            optional($proxyConnection)->close();
+        });
+
+        return $response;
+    }
+
+    protected function shouldRewriteResponseBody(ResponseInterface $response): bool
+    {
+        if (! isset($this->connectionData->host, $this->connectionData->subdomain)) {
+            return false;
+        }
+
+        $contentEncoding = strtolower($response->getHeaderLine('Content-Encoding'));
+
+        if ($contentEncoding !== '' && $contentEncoding !== 'identity') {
+            return false;
+        }
+
+        $contentType = strtolower(trim(explode(';', $response->getHeaderLine('Content-Type'))[0]));
+
+        return in_array($contentType, [
+            'text/html',
+            'application/javascript',
+            'text/javascript',
+            'text/css',
+        ]);
+    }
+
+    protected function rewriteResponseBody(string $body, bool $isViteRequest): string
+    {
+        if (! isset($this->connectionData->host, $this->connectionData->subdomain)) {
+            return $body;
+        }
+
+        $body = $this->viteDevServer()->rewriteUrls(
+            $body,
+            $this->localHost(),
+            $this->localPort(),
+            $this->shareOrigin()
+        );
+
+        if ($isViteRequest) {
+            // laravel-vite-plugin bakes the local hostname into /@vite/client as
+            // `hmr.host` when serving over TLS (Herd/Valet certificates).
+            $body = str_replace(
+                '"'.$this->localHost().'"',
+                '"'.$this->configuration->getUrl($this->connectionData->subdomain).'"',
+                $body
+            );
+        }
+
+        return $body;
+    }
+
+    protected function viteDevServer(): ViteDevServer
+    {
+        return app(ViteDevServer::class);
+    }
+
+    protected function localHost(): string
+    {
+        return parse_url('http://'.$this->connectionData->host, PHP_URL_HOST) ?: $this->connectionData->host;
+    }
+
+    protected function localPort(): int
+    {
+        $port = parse_url('http://'.$this->connectionData->host, PHP_URL_PORT);
+
+        return $port ?: ($this->configuration->isSecureSharedUrl() ? 443 : 80);
+    }
+
+    protected function shareOrigin(): string
+    {
+        $httpProtocol = $this->configuration->port() === 443 ? 'https' : 'http';
+
+        return $httpProtocol.'://'.$this->configuration->getUrl($this->connectionData->subdomain);
     }
 
     protected function sendChunkToServer(string $chunk, ?WebSocket $proxyConnection = null)
@@ -179,15 +294,22 @@ class HttpClient
 
         $location = $response->getHeaderLine('Location');
 
-        if (! strstr($location, $this->connectionData->host)) {
-            return $response;
+        if (isset($this->connectionData->host, $this->connectionData->subdomain)) {
+            $location = $this->viteDevServer()->rewriteUrls(
+                $location,
+                $this->localHost(),
+                $this->localPort(),
+                $this->shareOrigin()
+            );
         }
 
-        $location = str_replace(
-            $this->connectionData->host,
-            $this->configuration->getUrl($this->connectionData->subdomain),
-            $location
-        );
+        if (strstr($location, $this->connectionData->host)) {
+            $location = str_replace(
+                $this->connectionData->host,
+                $this->configuration->getUrl($this->connectionData->subdomain),
+                $location
+            );
+        }
 
         return $response->withHeader('Location', $location);
     }

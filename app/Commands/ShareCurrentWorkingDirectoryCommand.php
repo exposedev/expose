@@ -3,19 +3,18 @@
 namespace Expose\Client\Commands;
 
 use Expose\Client\Commands\Concerns\DetectsLocalDevelopmentSites;
+use Expose\Client\Http\ViteDevServer;
 use Illuminate\Support\Arr;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Yaml\Yaml;
-use Expose\Client\Commands\Concerns\SharesViteServer;
 
 use function Expose\Common\info;
 
 class ShareCurrentWorkingDirectoryCommand extends ShareCommand
 {
-    use SharesViteServer;
     use DetectsLocalDevelopmentSites;
 
-    protected $signature = 'share-cwd {host?} {--subdomain=} {--auth=} {--basicAuth=} {--magic-auth=} {--dns=} {--domain=} {--prevent-cors} {--no-vite-detection} {--qr} {--qr-code}';
+    protected $signature = 'share-cwd {host?} {--subdomain=} {--auth=} {--basicAuth=} {--magic-auth=} {--dns=} {--domain=} {--prevent-cors} {--qr} {--qr-code}';
 
     public function handle()
     {
@@ -52,9 +51,8 @@ class ShareCurrentWorkingDirectoryCommand extends ShareCommand
 
         $this->input->setOption('basicAuth', $authString);
 
-        if (!$this->option('no-vite-detection')) {
-            $this->checkForVite(getcwd());
-        }
+        // Used as a read-only fallback to detect a running Vite dev server.
+        app(ViteDevServer::class)->setHotFilePath(getcwd() . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'hot');
 
         parent::handle();
     }

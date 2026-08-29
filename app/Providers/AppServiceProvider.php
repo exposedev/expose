@@ -8,6 +8,7 @@ use Expose\Client\Logger\DatabaseLogger;
 use Expose\Client\Logger\FrontendLogger;
 use Expose\Client\Logger\Plugins\PluginManager;
 use Expose\Client\Logger\RequestLogger;
+use Expose\Client\Http\ViteDevServer;
 use Expose\Client\Support\ExposeConfig;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
@@ -49,6 +50,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(RequestLogger::class, function ($app) {
             return new RequestLogger($app->make(CliLogger::class), $app->make(FrontendLogger::class), $app->make(LogStorageContract::class));
+        });
+
+        $this->app->singleton(ViteDevServer::class, function () {
+            return new ViteDevServer();
         });
     }
 

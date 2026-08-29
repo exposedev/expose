@@ -15,7 +15,7 @@ class ShareCatchAllCommand extends ShareCommand
 {
 
 
-    protected $signature = 'catch-all {host?} {--subdomain=} {--auth=} {--basicAuth=} {--dns=} {--domain=} {--prevent-cors} {--no-vite-detection} {--qr} {--qr-code}';
+    protected $signature = 'catch-all {host?} {--subdomain=} {--auth=} {--basicAuth=} {--dns=} {--domain=} {--prevent-cors} {--qr} {--qr-code}';
 
     protected $description = 'Share a catch-all site';
 
