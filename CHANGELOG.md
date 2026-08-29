@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+*   Feature: Share a Laravel app and its running Vite dev server (including HMR) under a single public hostname. The client now routes Vite requests to the dev server in-process instead of rewriting `public/hot` and spawning a second `expose share` process. The hot file is never modified anymore, killing the tunnel leaves nothing to clean up, and Vite sharing now also works on Windows.
+*   Removed the `--no-vite-detection` option, as Vite detection no longer changes any local state.
+
 ## 1.3.0 (2020-07-01)
 *   Feature: Add pagination to admin user interface
 *   Feature: Add request time to CLI output
