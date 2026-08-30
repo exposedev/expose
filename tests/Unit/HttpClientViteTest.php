@@ -169,6 +169,21 @@ class HttpClientViteTest extends TestCase
     }
 
     /** @test */
+    public function it_rewrites_dev_server_urls_in_link_preload_headers()
+    {
+        $response = $this->httpClient->callRewriteResponseHeaders(
+            new Response(200, [
+                'Link' => '<http://[::1]:5176/__laravel_vite_plugin__/fonts/a.woff2>; rel="preload"; as="font", <http://[::1]:5176/__laravel_vite_plugin__/fonts/b.woff2>; rel="preload"; as="font"',
+            ])
+        );
+
+        $this->assertSame(
+            '<https://mysite.sharedwith.dev/__laravel_vite_plugin__/fonts/a.woff2>; rel="preload"; as="font", <https://mysite.sharedwith.dev/__laravel_vite_plugin__/fonts/b.woff2>; rel="preload"; as="font"',
+            $response->getHeaderLine('Link')
+        );
+    }
+
+    /** @test */
     public function it_upgrades_share_origin_urls_to_https_in_response_bodies()
     {
         $body = 'fetch("http://mysite.sharedwith.dev/_boost/browser-logs")';

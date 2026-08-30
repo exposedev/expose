@@ -351,19 +351,31 @@ class HttpClient
 
     protected function rewriteResponseHeaders(ResponseInterface $response)
     {
-        if (! $response->hasHeader('Location')) {
-            return $response;
-        }
-
         if(!$this->connectionData) {
             return $response;
         }
 
-        $location = $response->getHeaderLine('Location');
+        // Location: redirects to a local URL. Link: e.g. laravel-vite-plugin's
+        // font preloads, which point at the local dev server.
+        foreach (['Location', 'Link'] as $header) {
+            if (! $response->hasHeader($header)) {
+                continue;
+            }
 
+            $response = $response->withHeader($header, array_map(
+                fn ($value) => $this->rewriteHeaderValue($value),
+                $response->getHeader($header)
+            ));
+        }
+
+        return $response;
+    }
+
+    protected function rewriteHeaderValue(string $value): string
+    {
         if (isset($this->connectionData->host, $this->connectionData->subdomain)) {
-            $location = $this->viteDevServer()->rewriteUrls(
-                $location,
+            $value = $this->viteDevServer()->rewriteUrls(
+                $value,
                 $this->localHost(),
                 $this->localPort(),
                 $this->shareOrigin(),
@@ -371,27 +383,27 @@ class HttpClient
             );
         }
 
-        if (strstr($location, $this->connectionData->host)) {
-            $location = str_replace(
+        if (strstr($value, $this->connectionData->host)) {
+            $value = str_replace(
                 $this->connectionData->host,
                 $this->configuration->getUrl($this->connectionData->subdomain),
-                $location
+                $value
             );
-        } elseif (isset($this->connectionData->subdomain) && strstr($location, '://'.$this->localHost())) {
+        } elseif (isset($this->connectionData->subdomain) && strstr($value, '://'.$this->localHost())) {
             // The registered host may carry an explicit default port
             // (myapp.test:443) while the application redirects to the bare
             // hostname - match that too.
-            $location = str_replace(
+            $value = str_replace(
                 '://'.$this->localHost(),
                 '://'.$this->configuration->getUrl($this->connectionData->subdomain),
-                $location
+                $value
             );
         }
 
         if (isset($this->connectionData->subdomain)) {
-            $location = $this->upgradeShareOriginScheme($location);
+            $value = $this->upgradeShareOriginScheme($value);
         }
 
-        return $response->withHeader('Location', $location);
+        return $value;
     }
 }
