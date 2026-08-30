@@ -215,7 +215,13 @@ class HttpClient
 
             $rawResponse = Message::toString($response).$bodyBuffer;
 
-            $this->sendChunkToServer($rawResponse, $proxyConnection);
+            // Send in bounded frames - the server buffers each websocket
+            // message in full before relaying, so a single multi-megabyte
+            // frame can exceed its message size limit and kill the proxy
+            // connection.
+            foreach (str_split($rawResponse, 64 * 1024) as $chunk) {
+                $this->sendChunkToServer($chunk, $proxyConnection);
+            }
 
             $this->logResponse($rawResponse);
 

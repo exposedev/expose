@@ -66,6 +66,33 @@ class HttpClientViteTest extends TestCase
     }
 
     /** @test */
+    public function it_sends_large_buffered_responses_in_bounded_chunks()
+    {
+        $stream = new ThroughStream();
+
+        $response = new Response(200, [
+            'Content-Type' => 'text/javascript',
+        ], new ReadableBodyStream($stream));
+
+        $this->httpClient->callBufferAndRewriteResponse($response, false);
+
+        $body = str_repeat('a', 200 * 1024);
+        $stream->write($body);
+        $stream->end();
+
+        $this->assertGreaterThan(1, count($this->httpClient->chunks));
+
+        foreach ($this->httpClient->chunks as $chunk) {
+            $this->assertLessThanOrEqual(64 * 1024, strlen($chunk));
+        }
+
+        $rawResponse = implode('', $this->httpClient->chunks);
+
+        $this->assertStringEndsWith($body, $rawResponse);
+        $this->assertStringContainsString('Content-Length: '.strlen($body)."\r\n", $rawResponse);
+    }
+
+    /** @test */
     public function it_rewrites_the_hmr_hostname_in_vite_responses_only()
     {
         $viteClient = 'const hmrHostname = "myhost.test";';
