@@ -169,6 +169,27 @@ class HttpClientViteTest extends TestCase
     }
 
     /** @test */
+    public function it_upgrades_share_origin_urls_to_https_in_response_bodies()
+    {
+        $body = 'fetch("http://mysite.sharedwith.dev/_boost/browser-logs")';
+
+        $this->assertSame(
+            'fetch("https://mysite.sharedwith.dev/_boost/browser-logs")',
+            $this->httpClient->callRewriteResponseBody($body, false)
+        );
+    }
+
+    /** @test */
+    public function it_upgrades_http_local_host_redirects_to_the_https_share_origin()
+    {
+        $response = $this->httpClient->callRewriteResponseHeaders(
+            new Response(302, ['Location' => 'http://myhost.test/dashboard'])
+        );
+
+        $this->assertSame('https://mysite.sharedwith.dev/dashboard', $response->getHeaderLine('Location'));
+    }
+
+    /** @test */
     public function it_rewrites_dev_server_urls_in_location_headers()
     {
         $response = $this->httpClient->callRewriteResponseHeaders(

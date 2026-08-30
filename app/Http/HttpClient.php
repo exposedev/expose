@@ -268,6 +268,8 @@ class HttpClient
             ! $isViteRequest
         );
 
+        $body = $this->upgradeShareOriginScheme($body);
+
         if ($isViteRequest) {
             // laravel-vite-plugin bakes the local hostname into /@vite/client as
             // `hmr.host` when serving over TLS (Herd/Valet certificates). The
@@ -311,6 +313,22 @@ class HttpClient
         $httpProtocol = $this->configuration->port() === 443 ? 'https' : 'http';
 
         return $httpProtocol.'://'.$this->configuration->getUrl($this->connectionData->subdomain);
+    }
+
+    /**
+     * Applications behind the tunnel often generate http:// URLs for the share
+     * host (the local site is plain http and proxy headers go untrusted),
+     * which browsers block as mixed content on the https share page.
+     */
+    protected function upgradeShareOriginScheme(string $content): string
+    {
+        if ($this->configuration->port() !== 443) {
+            return $content;
+        }
+
+        $shareHost = $this->configuration->getUrl($this->connectionData->subdomain);
+
+        return str_replace('http://'.$shareHost, 'https://'.$shareHost, $content);
     }
 
     protected function sendChunkToServer(string $chunk, ?WebSocket $proxyConnection = null)
@@ -368,6 +386,10 @@ class HttpClient
                 '://'.$this->configuration->getUrl($this->connectionData->subdomain),
                 $location
             );
+        }
+
+        if (isset($this->connectionData->subdomain)) {
+            $location = $this->upgradeShareOriginScheme($location);
         }
 
         return $response->withHeader('Location', $location);
