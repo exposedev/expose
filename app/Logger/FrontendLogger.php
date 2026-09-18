@@ -4,6 +4,7 @@ namespace Expose\Client\Logger;
 
 use Expose\Client\Contracts\LoggerContract;
 use Expose\Client\Http\Resources\LogListResource;
+use Expose\Client\WebSockets\Socket;
 use React\Http\Browser;
 
 class FrontendLogger implements LoggerContract
@@ -15,6 +16,10 @@ class FrontendLogger implements LoggerContract
 
     public function synchronizeRequest(LoggedRequest $loggedRequest): void
     {
+        if (empty(Socket::$connections)) {
+            return;
+        }
+
         $this
             ->browser
             ->post(
