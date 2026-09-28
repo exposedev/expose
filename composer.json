@@ -24,7 +24,7 @@
         "cboden/ratchet": "dev-master",
         "chillerlan/php-qrcode": "^5.0",
         "exposedev/common": "dev-main",
-        "illuminate/database": "^11.5",
+        "illuminate/database": "^11.5|^13.0",
         "laravel/prompts": "^0.3.0@dev",
         "nunomaduro/termwind": "^2.0",
         "ratchet/pawl": "dev-master",
@@ -34,18 +34,18 @@
         "react/socket": "^1.6",
         "react/stream": "^1.1.1",
         "riverline/multipart-parser": "^2.0",
-        "symfony/expression-language": "^5.2",
+        "symfony/expression-language": "^5.2|^7.4",
         "symfony/http-kernel": "^7.0",
         "symfony/psr-http-message-bridge": "^7.0",
         "symfony/yaml": "^7.0",
         "fakerphp/faker": "^1.23",
         "guzzlehttp/guzzle": "^7.5",
         "guzzlehttp/psr7": "^1.7|^2.0",
-        "illuminate/http": "^11.5",
-        "illuminate/log": "^11.5",
-        "illuminate/pipeline": "^11.5",
-        "illuminate/validation": "^11.5",
-        "illuminate/view": "^11.5",
+        "illuminate/http": "^11.5|^13.0",
+        "illuminate/log": "^11.5|^13.0",
+        "illuminate/pipeline": "^11.5|^13.0",
+        "illuminate/validation": "^11.5|^13.0",
+        "illuminate/view": "^11.5|^13.0",
         "laminas/laminas-http": "^2.13",
         "laravel-zero/framework": "^11.0",
         "mockery/mockery": "^1.4.2",
@@ -106,7 +106,6 @@
     "bin": [
         "builds/expose"
     ],
-
     "scripts": {
         "post-create-project-cmd": [
             "@php application app:rename"
