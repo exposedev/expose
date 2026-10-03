@@ -3,6 +3,7 @@
 namespace Expose\Client\Logger;
 
 use Expose\Client\Contracts\LogStorageContract;
+use Illuminate\Support\Str;
 use Laminas\Http\Request;
 use Laminas\Http\Response;
 
@@ -21,11 +22,26 @@ class RequestLogger
     {
         $loggedRequest = new LoggedRequest($rawRequest, $request);
 
+        if ($this->shouldSkipLogging($request)) {
+            return $loggedRequest;
+        }
+
         $this->cliLogger->synchronizeRequest($loggedRequest);
         $this->logStorage->synchronizeRequest($loggedRequest);
         $this->frontendLogger->synchronizeRequest($loggedRequest);
 
         return $loggedRequest;
+    }
+
+    protected function shouldSkipLogging(Request $request): bool
+    {
+        $patterns = config()->get('expose.skip_request_log', []);
+
+        if (empty($patterns)) {
+            return false;
+        }
+
+        return Str::is($patterns, $request->getUri()->getPath());
     }
 
     public function logResponse(Request $request, string $rawResponse)

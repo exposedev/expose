@@ -145,6 +145,21 @@ return [
         'size' => '1MB',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Skip Request Logging
+    |--------------------------------------------------------------------------
+    |
+    | Requests to paths matching any of these patterns will not be logged at
+    | all. They will neither show up in the CLI output nor in the local
+    | dashboard. The query string is ignored when matching and "*" can be
+    | used as a wildcard. Ex: "/livewire/*", "*.css", "/favicon.ico".
+    |
+    */
+    'skip_request_log' => [
+        //
+    ],
+
     'admin' => [
 
         /*
