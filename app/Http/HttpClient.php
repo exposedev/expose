@@ -177,24 +177,9 @@ class HttpClient
             $uri = $uri->withScheme('https');
         }
 
-        // The Host header may carry an explicit default port (e.g. myapp.test:443
-        // for https shares). Browsers omit default ports, so strip them to keep
-        // HTTP_HOST identical to what the application sees during local browsing.
-        $request = $this->normalizeHostHeader($request->withUri($uri, true), $uri->getScheme());
+        $request = $request->withUri($uri, true)->withHeader('Host', $uri->getAuthority());
 
         return [$request, false];
-    }
-
-    protected function normalizeHostHeader(RequestInterface $request, string $scheme): RequestInterface
-    {
-        $host = $request->getHeaderLine('Host');
-        $defaultPort = $scheme === 'https' ? ':443' : ':80';
-
-        if (str_ends_with($host, $defaultPort)) {
-            $request = $request->withHeader('Host', substr($host, 0, -strlen($defaultPort)));
-        }
-
-        return $request;
     }
 
     protected function bufferAndRewriteResponse(ResponseInterface $response, $proxyConnection, bool $isViteRequest)
@@ -383,9 +368,11 @@ class HttpClient
             );
         }
 
-        if (strstr($value, $this->connectionData->host)) {
+        $host = preg_replace('/:443$/', '', $this->connectionData->host);
+
+        if (strstr($value, $host)) {
             $value = str_replace(
-                $this->connectionData->host,
+                $host,
                 $this->configuration->getUrl($this->connectionData->subdomain),
                 $value
             );
