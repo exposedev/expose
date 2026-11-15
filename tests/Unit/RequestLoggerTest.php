@@ -132,4 +132,54 @@ class RequestLoggerTest extends TestCase
 
         $this->assertCount(config('expose.max_logged_requests'), $logger->getData());
     }
+
+    /** @test */
+    public function it_does_not_log_requests_matching_the_skip_request_log_patterns()
+    {
+        config()->set('expose.skip_request_log', ['/livewire/*', '*.css']);
+
+        $cliLogger = m::mock(CliLogger::class);
+        $cliLogger->shouldNotReceive('synchronizeRequest');
+        $cliLogger->shouldNotReceive('synchronizeResponse');
+
+        $frontendLogger = m::mock(FrontendLogger::class);
+        $frontendLogger->shouldNotReceive('synchronizeRequest');
+        $frontendLogger->shouldNotReceive('synchronizeResponse');
+
+        $logStorage = new DatabaseLogger();
+
+        $logger = new RequestLogger($cliLogger, $frontendLogger, $logStorage);
+
+        foreach (['/livewire/update', '/css/app.css?ver=6.7.2'] as $uri) {
+            $requestString = Message::toString(new Request('GET', $uri, ["x-expose-request-id" => Str::uuid()->toString()]));
+            $parsedRequest = LaminasRequest::fromString($requestString);
+
+            $logger->logRequest($requestString, $parsedRequest);
+            $logger->logResponse($parsedRequest, Message::toString(new Response(200, [], 'Hello World!')));
+        }
+
+        $this->assertCount(0, $logger->getData());
+    }
+
+    /** @test */
+    public function it_logs_requests_not_matching_the_skip_request_log_patterns()
+    {
+        config()->set('expose.skip_request_log', ['/livewire/*']);
+
+        $cliLogger = m::mock(CliLogger::class);
+        $cliLogger->shouldReceive('synchronizeRequest')->once();
+
+        $frontendLogger = m::mock(FrontendLogger::class);
+        $frontendLogger->shouldReceive('synchronizeRequest')->once();
+
+        $logStorage = new DatabaseLogger();
+
+        $requestString = Message::toString(new Request('GET', '/example'));
+        $parsedRequest = LaminasRequest::fromString($requestString);
+
+        $logger = new RequestLogger($cliLogger, $frontendLogger, $logStorage);
+        $logger->logRequest($requestString, $parsedRequest);
+
+        $this->assertCount(1, $logger->getData());
+    }
 }
