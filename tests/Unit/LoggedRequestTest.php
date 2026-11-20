@@ -85,4 +85,23 @@ class LoggedRequestTest extends TestCase
         $loggedRequest = new LoggedRequest($rawRequest, $parsedRequest);
         $this->assertSame($parsedRequest, $loggedRequest->getRequest());
     }
+
+    /** @test */
+    public function it_skips_a_malformed_cookie_header()
+    {
+        $rawRequest = "POST /webhooks/test HTTP/1.1\r\n"
+            ."Host: expose.test\r\n"
+            ."Cookie:\r\n"
+            ."X-Expose-Request-ID: example-request\r\n"
+            ."Content-Type: application/json\r\n"
+            ."\r\n"
+            .'{"event":"ping"}';
+        $parsedRequest = LaminasRequest::fromString($rawRequest);
+
+        $loggedRequest = new LoggedRequest($rawRequest, $parsedRequest);
+
+        $this->assertSame('example-request', $loggedRequest->id());
+        $this->assertSame('expose.test', $loggedRequest->toArray()['request']['headers']['Host']);
+        $this->assertArrayNotHasKey('Cookie', $loggedRequest->toArray()['request']['headers']);
+    }
 }

@@ -95,8 +95,17 @@ class LoggedRequest implements \JsonSerializable
     protected function getRequestHeaders(): array
     {
         $headers = [];
+        $requestHeaders = $this->parsedRequest->getHeaders();
 
-        foreach ($this->parsedRequest->getHeaders() as $header) {
+        // Laminas parses each header lazily while iterating, so a malformed
+        // header (an empty "Cookie:" for example) throws in current().
+        for ($requestHeaders->rewind(); $requestHeaders->valid(); $requestHeaders->next()) {
+            try {
+                $header = $requestHeaders->current();
+            } catch (\Throwable $e) {
+                continue;
+            }
+
             if ($header instanceof MultipleHeaderInterface) {
                 $name = $header->getFieldName();
                 if (! isset($headers[$name])) {
